@@ -1,0 +1,6 @@
+{
+  "name": "Simulador de Predicción de Umbrales DoS/DDoS",
+  "description": "Aplicación académica interactiva para estimar umbrales de latencia M/M/1.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
