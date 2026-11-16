@@ -9,6 +9,7 @@ import { StepByStepPlayer } from './components/StepByStepPlayer';
 import { ChallengeSection } from './components/ChallengeSection';
 import { ABComparison } from './components/ABComparison';
 import { GlossaryModal } from './components/GlossaryModal';
+import { WebPredictor } from './components/WebPredictor';
 import { newtonRaphson, secantMethod } from './lib/solvers';
 import { getAnalyticalRoot, getAttackThreshold } from './lib/mm1';
 import {
@@ -17,10 +18,7 @@ import {
   Gauge,
   BookOpen,
   Target,
-  Sparkles,
-  Server,
-  Layers,
-  Zap,
+  Globe,
 } from 'lucide-react';
 
 export default function App() {
@@ -39,7 +37,7 @@ export default function App() {
   });
 
   // Active view tab
-  const [activeTab, setActiveTab] = useState<'simulador' | 'rendimiento' | 'teoria' | 'avanzado'>('simulador');
+  const [activeTab, setActiveTab] = useState<'simulador' | 'predictor' | 'rendimiento' | 'teoria' | 'avanzado'>('simulador');
 
   // Step-by-step player state
   const [activeMethod, setActiveMethod] = useState<'Newton-Raphson' | 'Secante'>('Newton-Raphson');
@@ -100,22 +98,22 @@ export default function App() {
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500 selection:text-white">
       {/* Top Banner / Navigation */}
       <header className="border-b border-slate-800 bg-slate-900/90 sticky top-0 z-40 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 text-indigo-400">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 text-indigo-400">
               <ShieldAlert className="w-6 h-6" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-extrabold text-slate-100 tracking-tight">
-                  Simulador de Predicción de Umbrales DoS/DDoS
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base sm:text-lg font-extrabold text-slate-100 tracking-tight">
+                  Simulador de Umbrales DoS/DDoS
                 </h1>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800 font-mono">
-                  M/M/1 Solver
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800 font-mono whitespace-nowrap">
+                  M/M/1 · M/G/1 · M/M/c
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
-                Comparativa de Solvers Numéricos: <span className="text-emerald-400 font-semibold">Newton-Raphson</span> vs <span className="text-amber-400 font-semibold">Método de la Secante</span>
+              <p className="text-[11px] text-slate-400">
+                Solvers Numéricos: <span className="text-emerald-400 font-semibold">Newton-Raphson</span> vs <span className="text-amber-400 font-semibold">Secante</span>
               </p>
             </div>
           </div>
@@ -124,7 +122,7 @@ export default function App() {
           <nav className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs overflow-x-auto">
             <button
               onClick={() => setActiveTab('simulador')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              className={`px-2.5 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 activeTab === 'simulador'
                   ? 'bg-indigo-600 text-white shadow'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
@@ -134,37 +132,48 @@ export default function App() {
               Simulador & Gráficas
             </button>
             <button
+              onClick={() => setActiveTab('predictor')}
+              className={`px-2.5 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                activeTab === 'predictor'
+                  ? 'bg-cyan-600 text-white shadow'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Globe className="w-4 h-4" />
+              Predictor Web (URL)
+            </button>
+            <button
               onClick={() => setActiveTab('rendimiento')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              className={`px-2.5 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 activeTab === 'rendimiento'
                   ? 'bg-indigo-600 text-white shadow'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
             >
               <Gauge className="w-4 h-4" />
-              Rendimiento & Benchmark
+              Rendimiento
             </button>
             <button
               onClick={() => setActiveTab('teoria')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              className={`px-2.5 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 activeTab === 'teoria'
                   ? 'bg-indigo-600 text-white shadow'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
             >
               <BookOpen className="w-4 h-4" />
-              Explicación Teórica
+              Teoría
             </button>
             <button
               onClick={() => setActiveTab('avanzado')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              className={`px-2.5 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 activeTab === 'avanzado'
                   ? 'bg-indigo-600 text-white shadow'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
             >
               <Target className="w-4 h-4" />
-              Reto & Comparador A/B
+              Reto & A/B
             </button>
           </nav>
         </div>
@@ -371,6 +380,26 @@ export default function App() {
               />
             </div>
           </div>
+        )}
+        {/* Tab: Predictor Web (URL) */}
+        {activeTab === 'predictor' && (
+          <WebPredictor
+            onApplyToSimulator={(probedMu, probedT) => {
+              const safeMu = Math.max(5, probedMu);
+              const safeLegit = Math.min(Math.round(safeMu * 0.3), Math.max(1, safeMu - 2));
+              setParams({
+                ...params,
+                mu: safeMu,
+                T: probedT,
+                lambdaLegitimo: safeLegit,
+                x0Newton: Number((safeMu * 0.6).toFixed(2)),
+                x0Secant: Number((safeMu * 0.55).toFixed(2)),
+                x1Secant: Number((safeMu * 0.7).toFixed(2)),
+              });
+              setCurrentStepIndex(0);
+              setActiveTab('simulador');
+            }}
+          />
         )}
       </main>
 

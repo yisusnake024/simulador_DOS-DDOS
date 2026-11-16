@@ -143,9 +143,9 @@ export const Controls: React.FC<ControlsProps> = ({ params, onChange, onOpenGlos
           </div>
           <input
             type="range"
-            min="200"
-            max="3000"
-            step="50"
+            min="5"
+            max={Math.max(3000, Math.ceil(params.mu * 1.2))}
+            step="1"
             value={params.mu}
             onChange={(e) => handleParamChange('mu', Number(e.target.value))}
             className="w-full accent-cyan-400 cursor-pointer"
@@ -166,7 +166,7 @@ export const Controls: React.FC<ControlsProps> = ({ params, onChange, onOpenGlos
           <input
             type="range"
             min="0.02"
-            max="1.5"
+            max="2.0"
             step="0.01"
             value={params.T}
             onChange={(e) => handleParamChange('T', Number(e.target.value))}
@@ -188,8 +188,8 @@ export const Controls: React.FC<ControlsProps> = ({ params, onChange, onOpenGlos
           <input
             type="range"
             min="0"
-            max={Math.max(10, params.mu - 10)}
-            step="20"
+            max={Math.max(5, params.mu - 1)}
+            step="1"
             value={params.lambdaLegitimo}
             onChange={(e) => handleParamChange('lambdaLegitimo', Number(e.target.value))}
             className="w-full accent-emerald-400 cursor-pointer"
