@@ -156,6 +156,23 @@ export const WebPredictor: React.FC<WebPredictorProps> = ({ onApplyToSimulator }
     return buildConvergenceSeries(solution.newton, solution.secant);
   }, [solution]);
 
+  const waitWithSignal = (ms: number, signal: AbortSignal) =>
+    new Promise<void>((resolve, reject) => {
+      if (signal.aborted) {
+        reject(new DOMException('Aborted', 'AbortError'));
+        return;
+      }
+      const timer = setTimeout(() => {
+        signal.removeEventListener('abort', onAbort);
+        resolve();
+      }, ms);
+      const onAbort = () => {
+        clearTimeout(timer);
+        reject(new DOMException('Aborted', 'AbortError'));
+      };
+      signal.addEventListener('abort', onAbort, { once: true });
+    });
+
   const startProbe = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const check = validateTargetUrl(urlInput);
@@ -176,61 +193,70 @@ export const WebPredictor: React.FC<WebPredictorProps> = ({ onApplyToSimulator }
     setSamples([]);
     setProbedUrl(check.normalizedUrl || urlInput);
 
+    const intervalMs = Math.round(1000 / Math.max(1, probeRate));
+    let activeMethod: 'HEAD' | 'GET' = probeMethod;
+
     try {
-      const response = await fetch('/api/probe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: check.normalizedUrl,
-          count: probeCount,
-          ratePerSec: probeRate,
-          method: probeMethod,
-        }),
-        signal: controller.signal,
-      });
+      for (let i = 0; i < probeCount; i++) {
+        if (controller.signal.aborted) break;
 
-      if (!response.ok) {
-        let msg = `Error HTTP ${response.status}`;
-        try {
-          const errJson = await response.json();
-          if (errJson?.error) msg = errJson.error;
-        } catch {
-          // ignore
-        }
-        setProbeError(msg);
-        setIsProbing(false);
-        return;
-      }
+        const stepStart = performance.now();
+        const response = await fetch('/api/probe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: check.normalizedUrl,
+            method: activeMethod,
+            mode: 'single',
+          }),
+          signal: controller.signal,
+        });
 
-      const reader = response.body?.getReader();
-      if (!reader) {
-        setProbeError('No se pudo leer el flujo de respuesta del servidor.');
-        setIsProbing(false);
-        return;
-      }
-
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
+        if (!response.ok) {
+          let msg = `Error HTTP ${response.status}`;
           try {
-            const event = JSON.parse(line);
-            if (event.type === 'meta' && event.url) {
-              setProbedUrl(event.url);
-            } else if (event.type === 'sample') {
-              setSamples((prev) => [...prev, event as ProbeSample]);
-            }
+            const errJson = await response.json();
+            if (errJson?.error) msg = errJson.error;
           } catch {
-            // ignore malformed chunk
+            // ignore
           }
+          setProbeError(msg);
+          break;
+        }
+
+        const data = (await response.json()) as {
+          normalizedUrl?: string;
+          ok: boolean;
+          status: number | null;
+          latencySec: number;
+          latencyMs: number;
+          methodUsed: 'HEAD' | 'GET';
+          error?: string;
+        };
+
+        if (i === 0 && data.normalizedUrl) {
+          setProbedUrl(data.normalizedUrl);
+        }
+        if (i === 0 && data.methodUsed && data.methodUsed !== activeMethod) {
+          activeMethod = data.methodUsed;
+        }
+
+        const sample: ProbeSample = {
+          index: i + 1,
+          total: probeCount,
+          ok: data.ok,
+          status: data.status,
+          latencySec: data.latencySec,
+          latencyMs: data.latencyMs,
+          methodUsed: data.methodUsed,
+          error: data.error,
+        };
+        setSamples((prev) => [...prev, sample]);
+
+        if (i < probeCount - 1 && !controller.signal.aborted) {
+          const elapsed = performance.now() - stepStart;
+          const waitMs = Math.max(50, intervalMs - elapsed);
+          await waitWithSignal(waitMs, controller.signal);
         }
       }
     } catch (err) {
