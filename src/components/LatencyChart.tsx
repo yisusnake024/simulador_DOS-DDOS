@@ -35,23 +35,52 @@ export const LatencyChart: React.FC<LatencyChartProps> = ({
   historySecant,
   highlightStepLambda,
 }) => {
-  // Generate curve data points from 0 up to 0.995 * mu
-  const steps = 70;
-  const maxSafeLambda = Math.min(mu - 1, mu * 0.995);
-  const data = Array.from({ length: steps }, (_, i) => {
-    const lambda = (i / (steps - 1)) * maxSafeLambda;
+  const timeoutMs = T * 1000;
+  const yMax = Math.min(2500, Math.max(timeoutMs * 2.2, 500));
+
+  // Generate curve data points from 0 up close to asymptote mu, with denser sampling near mu
+  const asymptoteLimit = mu - 1 / Math.max(0.1, (yMax / 1000) * 1.15);
+  const maxCurveLambda = Math.min(mu - 1e-4, Math.max(mu * 0.995, asymptoteLimit));
+  const kneeLambda = maxCurveLambda * 0.9;
+
+  const lambdas: number[] = [];
+  const coarseSteps = 45;
+  for (let i = 0; i < coarseSteps; i++) {
+    lambdas.push((i / coarseSteps) * kneeLambda);
+  }
+  const fineSteps = 35;
+  for (let i = 0; i <= fineSteps; i++) {
+    lambdas.push(kneeLambda + (i / fineSteps) * (maxCurveLambda - kneeLambda));
+  }
+  if (analyticalRoot > 0 && analyticalRoot < mu) {
+    lambdas.push(analyticalRoot);
+  }
+  lambdas.sort((a, b) => a - b);
+
+  const data = lambdas.map((lambda) => {
     const latency = getLatency(lambda, mu);
     return {
-      lambda: Number(lambda.toFixed(1)),
-      latencyMs: Number((latency * 1000).toFixed(2)),
-      timeoutMs: Number((T * 1000).toFixed(2)),
+      lambda: Number(lambda.toFixed(3)),
+      latencyMs: Number(Math.min(yMax * 1.05, latency * 1000).toFixed(2)),
+      timeoutMs: Number(timeoutMs.toFixed(2)),
     };
   });
 
-  const timeoutMs = T * 1000;
-  const highlightedLatencyMs = highlightStepLambda !== undefined && highlightStepLambda !== null
-    ? (getLatency(highlightStepLambda, mu) * 1000)
+  const hasValidHighlight =
+    highlightStepLambda !== undefined &&
+    highlightStepLambda !== null &&
+    isFinite(highlightStepLambda) &&
+    highlightStepLambda >= 0 &&
+    highlightStepLambda < mu;
+
+  const highlightedLatencyMs = hasValidHighlight
+    ? getLatency(highlightStepLambda, mu) * 1000
     : null;
+
+  const clampedDotY =
+    highlightedLatencyMs !== null && isFinite(highlightedLatencyMs)
+      ? Math.max(0, Math.min(highlightedLatencyMs, yMax))
+      : null;
 
   return (
     <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-5 shadow-lg">
@@ -75,15 +104,25 @@ export const LatencyChart: React.FC<LatencyChartProps> = ({
             <span className="w-2.5 h-0.5 bg-rose-400"></span>
             Timeout = {timeoutMs.toFixed(0)} ms
           </span>
+          {hasValidHighlight && (
+            <span className="flex items-center gap-1.5 text-pink-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-pink-500 border border-white"></span>
+              Paso: {highlightStepLambda.toFixed(1)} req/s
+            </span>
+          )}
         </div>
       </div>
 
       <div className="h-[300px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 15, right: 25, left: 10, bottom: 20 }}>
+          <LineChart data={data} margin={{ top: 15, right: 32, left: 10, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
             <XAxis
               dataKey="lambda"
+              type="number"
+              domain={[0, mu]}
+              allowDataOverflow
+              tickFormatter={(v) => Number(v).toFixed(0)}
               stroke="#94a3b8"
               tick={{ fontSize: 11 }}
               label={{
@@ -97,7 +136,8 @@ export const LatencyChart: React.FC<LatencyChartProps> = ({
             <YAxis
               stroke="#94a3b8"
               tick={{ fontSize: 11 }}
-              domain={[0, Math.min(2500, Math.max(timeoutMs * 2.2, 500))]}
+              domain={[0, yMax]}
+              allowDataOverflow
               label={{
                 value: 'Latencia (ms)',
                 angle: -90,
@@ -113,7 +153,7 @@ export const LatencyChart: React.FC<LatencyChartProps> = ({
                 const isOver = d.latencyMs > timeoutMs;
                 return (
                   <div className="bg-slate-950 border border-slate-700 p-2.5 rounded-lg shadow-xl text-xs space-y-1">
-                    <p className="font-bold text-slate-200">λ = {d.lambda} req/s</p>
+                    <p className="font-bold text-slate-200">λ = {Number(d.lambda).toFixed(1)} req/s</p>
                     <p className="text-cyan-300 flex justify-between gap-3">
                       <span>Latencia W(λ):</span>
                       <span className="font-mono font-bold">{d.latencyMs} ms</span>
@@ -145,6 +185,7 @@ export const LatencyChart: React.FC<LatencyChartProps> = ({
               stroke="#38bdf8"
               strokeWidth={3}
               dot={false}
+              isAnimationActive={false}
               name="latencyMs"
             />
 
@@ -168,9 +209,10 @@ export const LatencyChart: React.FC<LatencyChartProps> = ({
               stroke="#a855f7"
               strokeDasharray="3 3"
               strokeWidth={1.5}
+              ifOverflow="extendDomain"
               label={{
                 value: `λ* = ${analyticalRoot.toFixed(1)}`,
-                position: 'insideTopLeft',
+                position: 'insideTopRight',
                 fill: '#c084fc',
                 fontSize: 10,
               }}
@@ -181,6 +223,7 @@ export const LatencyChart: React.FC<LatencyChartProps> = ({
               x={lambdaLegitimo}
               stroke="#10b981"
               strokeWidth={1.5}
+              ifOverflow="extendDomain"
               label={{
                 value: `λ_legítimo = ${lambdaLegitimo}`,
                 position: 'insideTopRight',
@@ -189,15 +232,26 @@ export const LatencyChart: React.FC<LatencyChartProps> = ({
               }}
             />
 
-            {/* Highlighted active step dot */}
-            {highlightStepLambda !== undefined && highlightStepLambda !== null && highlightedLatencyMs !== null && isFinite(highlightedLatencyMs) && (
+            {/* Active step vertical guide + dot */}
+            {hasValidHighlight && (
+              <ReferenceLine
+                x={highlightStepLambda}
+                stroke="#ec4899"
+                strokeDasharray="4 2"
+                strokeWidth={1.5}
+                ifOverflow="extendDomain"
+              />
+            )}
+
+            {hasValidHighlight && clampedDotY !== null && (
               <ReferenceDot
                 x={highlightStepLambda}
-                y={highlightedLatencyMs}
-                r={8}
+                y={clampedDotY}
+                r={7}
                 fill="#ec4899"
                 stroke="#ffffff"
                 strokeWidth={2}
+                ifOverflow="visible"
               />
             )}
           </LineChart>

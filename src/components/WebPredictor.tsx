@@ -998,6 +998,10 @@ export const WebPredictor: React.FC<WebPredictorProps> = ({ onApplyToSimulator }
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                       <XAxis
                         dataKey="lambda"
+                        type="number"
+                        domain={[0, 'dataMax']}
+                        allowDataOverflow
+                        tickFormatter={(v) => Number(v).toFixed(1)}
                         stroke="#94a3b8"
                         tick={{ fontSize: 11 }}
                         label={{
@@ -1062,9 +1066,10 @@ export const WebPredictor: React.FC<WebPredictorProps> = ({ onApplyToSimulator }
                           stroke="#c084fc"
                           strokeDasharray="3 3"
                           strokeWidth={2}
+                          ifOverflow="extendDomain"
                           label={{
                             value: `λ* = ${activeRoot.toFixed(1)}`,
-                            position: 'insideTopLeft',
+                            position: 'insideTopRight',
                             fill: '#c084fc',
                             fontSize: 11,
                           }}

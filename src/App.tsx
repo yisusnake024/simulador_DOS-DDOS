@@ -6,8 +6,6 @@ import { IterationTable } from './components/IterationTable';
 import { TheorySection } from './components/TheorySection';
 import { BenchmarkPanel } from './components/BenchmarkPanel';
 import { StepByStepPlayer } from './components/StepByStepPlayer';
-import { ChallengeSection } from './components/ChallengeSection';
-import { ABComparison } from './components/ABComparison';
 import { GlossaryModal } from './components/GlossaryModal';
 import { WebPredictor } from './components/WebPredictor';
 import { newtonRaphson, secantMethod } from './lib/solvers';
@@ -17,7 +15,6 @@ import {
   Activity,
   Gauge,
   BookOpen,
-  Target,
   Globe,
 } from 'lucide-react';
 
@@ -37,7 +34,7 @@ export default function App() {
   });
 
   // Active view tab
-  const [activeTab, setActiveTab] = useState<'simulador' | 'predictor' | 'rendimiento' | 'teoria' | 'avanzado'>('simulador');
+  const [activeTab, setActiveTab] = useState<'simulador' | 'predictor' | 'rendimiento' | 'teoria'>('simulador');
 
   // Step-by-step player state
   const [activeMethod, setActiveMethod] = useState<'Newton-Raphson' | 'Secante'>('Newton-Raphson');
@@ -92,7 +89,8 @@ export default function App() {
 
   // Highlight step lambda for the latency chart
   const activeHistory = activeMethod === 'Newton-Raphson' ? results.newton.history : results.secant.history;
-  const highlightedLambda = activeHistory[currentStepIndex]?.x ?? null;
+  const safeStepIndex = Math.min(currentStepIndex, Math.max(0, activeHistory.length - 1));
+  const highlightedLambda = activeHistory[safeStepIndex]?.x ?? null;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500 selection:text-white">
@@ -163,17 +161,6 @@ export default function App() {
             >
               <BookOpen className="w-4 h-4" />
               Teoría
-            </button>
-            <button
-              onClick={() => setActiveTab('avanzado')}
-              className={`px-2.5 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeTab === 'avanzado'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
-            >
-              <Target className="w-4 h-4" />
-              Reto & A/B
             </button>
           </nav>
         </div>
@@ -246,7 +233,7 @@ export default function App() {
                   secantResult={results.secant}
                   activeMethod={activeMethod}
                   onSelectMethod={setActiveMethod}
-                  currentStepIndex={currentStepIndex}
+                  currentStepIndex={safeStepIndex}
                   onStepChange={setCurrentStepIndex}
                   T={params.T}
                   mu={params.mu}
@@ -278,7 +265,7 @@ export default function App() {
               <IterationTable
                 result={results.newton}
                 mu={params.mu}
-                selectedIterationIndex={activeMethod === 'Newton-Raphson' ? currentStepIndex : undefined}
+                selectedIterationIndex={activeMethod === 'Newton-Raphson' ? safeStepIndex : undefined}
                 onSelectIteration={(idx) => {
                   setActiveMethod('Newton-Raphson');
                   setCurrentStepIndex(idx);
@@ -287,7 +274,7 @@ export default function App() {
               <IterationTable
                 result={results.secant}
                 mu={params.mu}
-                selectedIterationIndex={activeMethod === 'Secante' ? currentStepIndex : undefined}
+                selectedIterationIndex={activeMethod === 'Secante' ? safeStepIndex : undefined}
                 onSelectIteration={(idx) => {
                   setActiveMethod('Secante');
                   setCurrentStepIndex(idx);
@@ -353,34 +340,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab 4: Challenge & A/B Infrastructure */}
-        {activeTab === 'avanzado' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ChallengeSection
-                mu={params.mu}
-                T={params.T}
-                analyticalRoot={analyticalRoot}
-                lambdaLegitimo={params.lambdaLegitimo}
-              />
-              <ABComparison
-                currentParams={{
-                  mu: params.mu,
-                  T: params.T,
-                  lambdaLegitimo: params.lambdaLegitimo,
-                }}
-                onApplyConfig={(c) => {
-                  setParams({
-                    ...params,
-                    mu: c.mu,
-                    T: c.T,
-                    lambdaLegitimo: c.lambdaLegitimo,
-                  });
-                }}
-              />
-            </div>
-          </div>
-        )}
         {/* Tab: Predictor Web (URL) */}
         {activeTab === 'predictor' && (
           <WebPredictor
